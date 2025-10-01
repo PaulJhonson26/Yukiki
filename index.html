@@ -9,10 +9,11 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
     <script src="pwa.js"></script>
+    
 </head>
 <body>
     <header>
-        <h1>📱 Yukiki</h1>
+        <h1>📱 QR Code Scanner</h1>
     </header>
 
     <main>
@@ -22,10 +23,6 @@
         </div>
 
         <div class="status" id="status">Click "Start Scanner" to begin</div>
-
-        <button id="toggle-debug">Show Debug Info</button>
-
-        <div id="debug-console"></div>
 
         <div id="scanner-container" style="display: none;">
             <video id="video" playsinline></video>
@@ -50,6 +47,7 @@
             <button id="scan-again-btn">Scan Another Code</button>
         </div>
     </main>
+
     <script src="script.js"></script>
 </body>
 </html>

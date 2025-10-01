@@ -41,7 +41,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 2rem 1rem;
+            padding: 1rem;
             max-width: 600px;
             margin: 0 auto;
             width: 100%;
@@ -55,7 +55,7 @@
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
         #video {
@@ -135,6 +135,8 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             transition: all 0.3s ease;
             margin-bottom: 1rem;
+            width: 100%;
+            max-width: 300px;
         }
 
         button:hover {
@@ -159,6 +161,7 @@
             width: 100%;
             max-width: 500px;
             display: none;
+            margin-bottom: 1rem;
         }
 
         #result.show {
@@ -179,23 +182,40 @@
 
         #result h2 {
             color: #4F46E5;
-            margin-bottom: 0.5rem;
-            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            text-align: center;
         }
 
         #result-content {
             word-break: break-all;
-            color: #666;
+            color: #333;
             line-height: 1.6;
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #4F46E5;
+            margin-bottom: 0.5rem;
         }
 
         .status {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 1.5rem;
             border-radius: 12px;
             margin-bottom: 1rem;
             font-weight: 500;
             color: #4F46E5;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
         }
 
         #install-prompt {
@@ -206,6 +226,8 @@
             display: none;
             text-align: center;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
         }
 
         #install-prompt.show {
@@ -221,7 +243,19 @@
             background: #4F46E5;
             color: white;
             padding: 0.75rem 1.5rem;
-            margin: 0;
+            margin: 0 auto;
+            max-width: 200px;
+        }
+
+        .success-icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        #scan-again-btn {
+            background: #4F46E5;
+            color: white;
         }
     </style>
 </head>
@@ -252,11 +286,13 @@
         </div>
 
         <button id="start-btn">Start Scanner</button>
-        <button id="stop-btn" style="display: none;">Stop Scanner</button>
 
         <div id="result">
-            <h2>Scanned Result:</h2>
+            <div class="success-icon">✅</div>
+            <h2>QR Code Detected!</h2>
+            <div class="result-label">Scanned Content:</div>
             <div id="result-content"></div>
+            <button id="scan-again-btn">Scan Another Code</button>
         </div>
     </main>
 
@@ -265,7 +301,7 @@
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('start-btn');
-        const stopBtn = document.getElementById('stop-btn');
+        const scanAgainBtn = document.getElementById('scan-again-btn');
         const scannerContainer = document.getElementById('scanner-container');
         const result = document.getElementById('result');
         const resultContent = document.getElementById('result-content');
@@ -298,8 +334,14 @@
             navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZXZlbnQpIHsKICBzZWxmLnNraXBXYWl0aW5nKCk7Cn0pOwoKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7CiAgZXZlbnQucmVzcG9uZFdpdGgoZmV0Y2goZXZlbnQucmVxdWVzdCkpOwp9KTs=');
         }
 
-        startBtn.addEventListener('click', async () => {
+        startBtn.addEventListener('click', startScanner);
+        scanAgainBtn.addEventListener('click', startScanner);
+
+        async function startScanner() {
             try {
+                // Hide result if showing
+                result.classList.remove('show');
+                
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'environment' }
                 });
@@ -309,20 +351,16 @@
 
                 scannerContainer.style.display = 'block';
                 startBtn.style.display = 'none';
-                stopBtn.style.display = 'block';
-                status.textContent = 'Scanning... Point camera at QR code';
+                status.textContent = '🔍 Scanning... Point camera at QR code';
+                status.style.display = 'block';
                 
                 scanning = true;
                 requestAnimationFrame(scan);
             } catch (err) {
-                status.textContent = 'Camera access denied. Please enable camera permissions.';
+                status.textContent = '❌ Camera access denied. Please enable camera permissions in Settings.';
                 console.error(err);
             }
-        });
-
-        stopBtn.addEventListener('click', () => {
-            stopScanner();
-        });
+        }
 
         function stopScanner() {
             scanning = false;
@@ -331,9 +369,7 @@
                 stream = null;
             }
             scannerContainer.style.display = 'none';
-            startBtn.style.display = 'block';
-            stopBtn.style.display = 'none';
-            status.textContent = 'Scanner stopped. Click "Start Scanner" to scan again.';
+            status.style.display = 'none';
         }
 
         function scan() {
@@ -358,17 +394,22 @@
 
         function handleQRCode(data) {
             scanning = false;
+            stopScanner();
+            
+            // Display result prominently
             resultContent.textContent = data;
             result.classList.add('show');
-            status.textContent = 'QR Code detected! Product: ' + data;
+            startBtn.style.display = 'none';
             
             // Vibrate if supported
             if ('vibrate' in navigator) {
                 navigator.vibrate(200);
             }
 
-            // Stop scanner after successful scan
-            stopScanner();
+            // Scroll result into view
+            setTimeout(() => {
+                result.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
         }
     </script>
 </body>

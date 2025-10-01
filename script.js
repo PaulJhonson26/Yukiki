@@ -147,6 +147,19 @@ function scan() {
             debugLog(`ImageData size: ${imageData.width}x${imageData.height}`);
             debugLog('jsQR library loaded: ' + (typeof jsQR !== 'undefined'));
         }
+        try {
+            const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+            const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
+            const resultZXing = codeReader.decode(binaryBitmap);
+            if (resultZXing) {
+                debugLog('BARCODE FOUND!');
+                debugLog(`Data: ${resultZXing.getText()}`);
+                handleScannedCode(resultZXing.getText());
+                return;
+            }
+        } catch (err) {
+            debugLog('No barcode detected this frame');
+        }
 
         try {
             const code = jsQR(imageData.data, imageData.width, imageData.height, {
@@ -161,20 +174,6 @@ function scan() {
             }
         } catch (err) {
             debugLog(`jsQR error: ${err.message}`);
-        }
-
-        try {
-            const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
-            const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
-            const resultZXing = codeReader.decode(binaryBitmap);
-            if (resultZXing) {
-                debugLog('BARCODE FOUND!');
-                debugLog(`Data: ${resultZXing.getText()}`);
-                handleScannedCode(resultZXing.getText());
-                return;
-            }
-        } catch (err) {
-            debugLog('No barcode detected this frame');
         }
     } else {
         if (scanAttempts <= 10) {

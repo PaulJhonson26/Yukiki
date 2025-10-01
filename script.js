@@ -9,6 +9,7 @@ const resultContent = document.getElementById('result-content');
 const status = document.getElementById('status');
 const debugConsole = document.getElementById('debug-console');
 const toggleDebugBtn = document.getElementById('toggle-debug');
+const codeReader = new ZXing.BrowserMultiFormatReader();
 
 let stream = null;
 let scanning = false;
@@ -155,11 +156,25 @@ function scan() {
             if (code) {
                 debugLog('QR CODE FOUND!');
                 debugLog(`Data: ${code.data}`);
-                handleQRCode(code.data);
+                handleScannedCode(code.data);
                 return;
             }
         } catch (err) {
             debugLog(`jsQR error: ${err.message}`);
+        }
+
+        try {
+            const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+            const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
+            const resultZXing = codeReader.decode(binaryBitmap);
+            if (resultZXing) {
+                debugLog('BARCODE FOUND!');
+                debugLog(`Data: ${resultZXing.getText()}`);
+                handleScannedCode(resultZXing.getText());
+                return;
+            }
+        } catch (err) {
+            debugLog('No barcode detected this frame');
         }
     } else {
         if (scanAttempts <= 10) {
@@ -170,7 +185,7 @@ function scan() {
     requestAnimationFrame(scan);
 }
 
-function handleQRCode(data) {
+function handleScannedCode(data) {
     debugLog('Handling QR code result');
     scanning = false;
     stopScanner();

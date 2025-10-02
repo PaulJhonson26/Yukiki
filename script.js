@@ -80,8 +80,7 @@ async function startScanner() {
         
         // Clear scanner container and create fresh elements
         scannerContainer.innerHTML = `
-            <div id="qr-reader" style="width: 100%;"></div>
-            <video id="video" playsinline style="display: none;"></video>
+            <div id="qr-reader"></div>
             <div id="overlay">
                 <div class="scanner-frame">
                     <div class="scan-line"></div>
@@ -93,33 +92,7 @@ async function startScanner() {
             </div>
         `;
 
-        const video = document.getElementById('video');
-        
-        debugLog('Requesting camera access...');
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: { 
-                facingMode: 'environment',
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            }
-        });
-        
-        debugLog('Camera access granted');
-        video.srcObject = stream;
-        
-        // Wait for video metadata
-        await new Promise((resolve, reject) => {
-            video.onloadedmetadata = () => {
-                debugLog(`Video metadata loaded. Dimensions: ${video.videoWidth}x${video.videoHeight}`);
-                if (video.videoWidth === 0 || video.videoHeight === 0) {
-                    reject(new Error('Invalid video dimensions'));
-                } else {
-                    resolve();
-                }
-            };
-            video.onerror = () => reject(new Error('Video stream error'));
-            video.play();
-        });
+        debugLog('Initializing Quagga scanner...');
         
         // Initialize Quagga
         Quagga.init({
@@ -129,14 +102,15 @@ async function startScanner() {
                 target: document.querySelector('#qr-reader'),
                 constraints: {
                     facingMode: 'environment',
-                    width: 640,
-                    height: 480
+                    width: { min: 300, ideal: 640, max: 800 },
+                    height: { min: 200, ideal: 300, max: 400 },
+                    aspectRatio: { min: 1.0, ideal: 1.33, max: 2.0 }
                 },
-                area: { // Restrict scan area for 1D barcodes
-                    top: '30%',
+                area: { // Restrict scan area for better performance
+                    top: '20%',
                     right: '10%',
                     left: '10%',
-                    bottom: '30%'
+                    bottom: '20%'
                 }
             },
             locator: {
@@ -200,11 +174,8 @@ function stopScanner() {
         Quagga.stop();
         debugLog('Barcode scanner stopped');
     }
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-        debugLog('Camera stopped');
-    }
+    
+    // Restore original container content
     scannerContainer.innerHTML = `
         <video id="video" playsinline style="display: none;"></video>
         <div id="overlay">

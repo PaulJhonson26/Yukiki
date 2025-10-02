@@ -1,6 +1,4 @@
 const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('start-btn');
 const scanAgainBtn = document.getElementById('scan-again-btn');
 const scannerContainer = document.getElementById('scanner-container');
@@ -15,7 +13,18 @@ let stream = null;
 let scanning = false;
 let debugEnabled = false;
 let scanAttempts = 0;
-let barcodeDetector = null;
+let html5QrCodeScanner = null;
+
+// Format mapping for consistent display
+const formatMap = {
+    'EAN_13': 'ean_13',
+    'EAN_8': 'ean_8',
+    'UPC_A': 'upc_a',
+    'UPC_E': 'upc_e',
+    'CODE_128': 'code_128',
+    'CODE_39': 'code_39',
+    'unknown': 'unknown'
+};
 
 // Debug logging function
 function debugLog(message) {
@@ -43,45 +52,16 @@ toggleDebugBtn.addEventListener('click', () => {
 startBtn.addEventListener('click', startScanner);
 scanAgainBtn.addEventListener('click', startScanner);
 
-// Check for Barcode Detection API support
-async function initBarcodeDetector() {
-    if (barcodeDetector) return true;
-    
-    debugLog('Checking for Barcode Detection API...');
-    
-    if (!('BarcodeDetector' in window)) {
-        debugLog('BarcodeDetector not available - browser does not support it');
-        return false;
-    }
-    
-    try {
-        const formats = await BarcodeDetector.getSupportedFormats();
-        debugLog(`Supported formats: ${formats.join(', ')}`);
-        
-        barcodeDetector = new BarcodeDetector({
-            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39']
-        });
-        
-        debugLog('BarcodeDetector initialized successfully');
-        return true;
-    } catch (err) {
-        debugLog(`ERROR initializing BarcodeDetector: ${err.message}`);
-        return false;
-    }
-}
-
 async function startScanner() {
+    if (typeof Html5Qrcode === 'undefined') {
+        status.textContent = '❌ Barcode scanner library failed to load. Check your internet connection and try again.';
+        debugLog('ERROR: Html5Qrcode library not loaded');
+        return;
+    }
+
     try {
         debugLog('Starting scanner...');
         scanAttempts = 0;
-        
-        // Initialize barcode detector
-        const initialized = await initBarcodeDetector();
-        if (!initialized) {
-            status.textContent = '❌ Barcode detection not supported on this browser. Try using Safari.';
-            debugLog('Falling back to manual scanning mode');
-            // We'll continue anyway and try manual detection
-        }
         
         // Hide result if showing
         result.classList.remove('show');
@@ -96,23 +76,48 @@ async function startScanner() {
         });
         
         debugLog('Camera access granted');
-        debugLog(`Stream tracks: ${stream.getTracks().length}`);
-        
         video.srcObject = stream;
         await video.play();
-
         debugLog('Video element started');
 
+        // Initialize JS scanner
+        html5QrCodeScanner = new Html5Qrcode("scanner-container");
+        
+        const config = { 
+            fps: 10,  // Scans ~10x/sec for smooth perf on iPhone 8
+            qrbox: { width: 250, height: 250 },  // Focus box size
+            aspectRatio: 1.0  // Square for barcodes
+        };
+        
+        const successCallback = (decodedText, decodedResult) => {
+            debugLog(`BARCODE FOUND! Value: ${decodedText}, Format: ${decodedResult.format?.formatName || 'unknown'}`);
+            handleBarcode(decodedText, decodedResult.format?.formatName || 'unknown');
+        };
+        
+        const errorCallback = (error) => {
+            if (scanAttempts % 60 === 0) {  // Log errors sparingly
+                debugLog(`Scan error: ${error}`);
+            }
+            scanAttempts++;
+        };
+        
+        // Start scanning
+        await html5QrCodeScanner.start(
+            { facingMode: "environment" },  // Camera constraints
+            config,                         // Config object
+            successCallback,               // Success callback
+            errorCallback                  // Error callback
+        );
+        
         scannerContainer.style.display = 'block';
         startBtn.style.display = 'none';
         status.textContent = '📊 Scanning... Point camera at barcode';
         status.style.display = 'block';
-        
         scanning = true;
-        debugLog('Scan loop starting...');
-        requestAnimationFrame(scan);
+        debugLog('JS scanner started successfully');
+        
     } catch (err) {
-        status.textContent = '❌ Camera access denied. Please enable camera permissions in Settings.';
+        status.textContent = '❌ Camera access failed. Ensure camera permissions are enabled in Settings > Safari > Camera, and this app is served over HTTPS.';
         debugLog(`ERROR: ${err.message}`);
         console.error(err);
     }
@@ -120,6 +125,13 @@ async function startScanner() {
 
 function stopScanner() {
     scanning = false;
+    if (html5QrCodeScanner) {
+        html5QrCodeScanner.stop().then(() => {
+            html5QrCodeScanner.clear();  // Removes overlay/cache
+            debugLog('JS scanner stopped');
+            html5QrCodeScanner = null;
+        }).catch(err => debugLog(`Stop error: ${err}`));
+    }
     if (stream) {
         stream.getTracks().forEach(track => track.stop());
         stream = null;
@@ -129,66 +141,15 @@ function stopScanner() {
     status.style.display = 'none';
 }
 
-async function scan() {
-    if (!scanning) return;
-
-    scanAttempts++;
-    
-    if (scanAttempts === 1) {
-        debugLog('First scan attempt');
-    }
-    
-    // Log every 60 frames (about once per second at 60fps)
-    if (scanAttempts % 60 === 0) {
-        debugLog(`Scan attempts: ${scanAttempts}, Video ready: ${video.readyState}`);
-    }
-
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        if (scanAttempts === 1) {
-            debugLog(`Video dimensions: ${video.videoWidth}x${video.videoHeight}`);
-        }
-        
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        if (scanAttempts === 1) {
-            debugLog(`Canvas size: ${canvas.width}x${canvas.height}`);
-            debugLog(`BarcodeDetector available: ${!!barcodeDetector}`);
-        }
-        
-        if (barcodeDetector) {
-            try {
-                const barcodes = await barcodeDetector.detect(canvas);
-
-                if (barcodes && barcodes.length > 0) {
-                    debugLog(`BARCODE FOUND! Count: ${barcodes.length}`);
-                    const barcode = barcodes[0];
-                    debugLog(`Type: ${barcode.format}, Value: ${barcode.rawValue}`);
-                    handleBarcode(barcode.rawValue, barcode.format);
-                    return;
-                }
-            } catch (err) {
-                debugLog(`Detection error: ${err.message}`);
-            }
-        }
-    } else {
-        if (scanAttempts <= 10) {
-            debugLog(`Waiting for video data... (readyState: ${video.readyState})`);
-        }
-    }
-
-    requestAnimationFrame(scan);
-}
-
 function handleBarcode(data, format) {
     debugLog('Handling barcode result');
     scanning = false;
     stopScanner();
     
     // Display result prominently
+    const normalizedFormat = formatMap[format] || 'unknown';
     resultContent.textContent = data;
-    barcodeType.textContent = `Format: ${format.toUpperCase().replace('_', '-')}`;
+    barcodeType.textContent = `Format: ${normalizedFormat.toUpperCase().replace('_', '-')}`;
     result.classList.add('show');
     startBtn.style.display = 'none';
     

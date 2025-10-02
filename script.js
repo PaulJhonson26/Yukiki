@@ -1,3 +1,8 @@
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing app...');
+});
+
 const startBtn = document.getElementById('start-btn');
 const scanAgainBtn = document.getElementById('scan-again-btn');
 const scannerContainer = document.getElementById('scanner-container');
@@ -7,6 +12,15 @@ const barcodeType = document.getElementById('barcode-type');
 const status = document.getElementById('status');
 const debugConsole = document.getElementById('debug-console');
 const toggleDebugBtn = document.getElementById('toggle-debug');
+
+// Debug: Check if elements exist
+console.log('Elements found:', {
+    startBtn: !!startBtn,
+    scanAgainBtn: !!scanAgainBtn,
+    toggleDebugBtn: !!toggleDebugBtn,
+    status: !!status,
+    debugConsole: !!debugConsole
+});
 
 let stream = null;
 let scanning = false;

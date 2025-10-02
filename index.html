@@ -5,21 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>🥕 Yukiki</title>
+    <title>Yukiki</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
-    <script src="pwa.js"></script>
-    <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
-    <script src="script.js"></script>
 </head>
 <body>
+    <header>
+        <h1>🥕 Yukiki</h1>
+    </header>
     <main>
         <div id="install-prompt" class="install-prompt">
             Install this app for a better experience!
             <button id="install-btn">Install App</button>
         </div>
 
-        <div id="status" style="display: none;">
+        <div id="status" class="status">
             Click "Start Scanner" to begin
         </div>
 
@@ -51,5 +51,9 @@
 
         <div id="debug-console"></div>
     </main>
+
+    <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+    <script src="pwa.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

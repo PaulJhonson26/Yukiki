@@ -4,15 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#4F46E5">
-    <title>QR Scanner</title>
-    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlFSIENvZGUgU2Nhbm5lciIsCiAgInNob3J0X25hbWUiOiAiUVIgU2Nhbm5lciIsCiAgInN0YXJ0X3VybCI6ICIvIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAidGhlbWVfY29sb3IiOiAiIzRGNDZFNSIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnPjxyZWN0IHdpZHRoPScxMDAnIGhlaWdodD0nMTAwJyBmaWxsPSclMjM0RjQ2RTUnLz48dGV4dCB4PSc1MCUnIHk9JzUwJScgZm9udC1zaXplPSc1MCcgZmlsbD0nd2hpdGUnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGR5PScuMzVlbSc+UVI8L3RleHQ+PC9zdmc+IiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfSwKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsPHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48cmVjdCB3aWR0aD0nMTAwJyBoZWlnaHQ9JzEwMCcgZmlsbD0nJTIzNEY0NkU1Jy8+PHRleHQgeD0nNTAlJyB5PSc1MCUnIGZvbnQtc2l6ZT0nNTAnIGZpbGw9J3doaXRlJyB0ZXh0LWFuY2hvcj0nbWlkZGxlJyBkeT0nLjM1ZW0nPlFSPC90ZXh0Pjwvc3ZnPiIsCiAgICAgICJzaXplcyI6ICI1MTJ4NTEyIiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIKICAgIH0KICBdCn0=">
+    <title>Yukiki</title>
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkJhcmNvZGUgU2Nhbm5lciIsCiAgInNob3J0X25hbWUiOiAiQmFyY29kZSIsCiAgInN0YXJ0X3VybCI6ICIvIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAidGhlbWVfY29sb3IiOiAiIzRGNDZFNSIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnPjxyZWN0IHdpZHRoPScxMDAnIGhlaWdodD0nMTAwJyBmaWxsPSclMjM0RjQ2RTUnLz48dGV4dCB4PSc1MCUnIHk9JzUwJScgZm9udC1zaXplPSc0MCcgZmlsbD0nd2hpdGUnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGR5PScuMzVlbSc+fHx8PC90ZXh0Pjwvc3ZnPiIsCiAgICAgICJzaXplcyI6ICIxOTJ4MTkyIiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIKICAgIH0sCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLDxzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgMTAwIDEwMCc+PHJlY3Qgd2lkdGg9JzEwMCcgaGVpZ2h0PScxMDAnIGZpbGw9JyUyMzRGNDZFNScvPjx0ZXh0IHg9JzUwJScgeT0nNTAlJyBmb250LXNpemU9JzQwJyBmaWxsPSd3aGl0ZScgdGV4dC1hbmNob3I9J21pZGRsZScgZHk9Jy4zNWVtJz58fHw8L3RleHQ+PC9zdmc+IiwKICAgICAgInNpemVzIjogIjUxMng1MTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfQogIF0KfQ==">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.10.1/dist/main.js"></script>
 </head>
 <body>
     <header>
-        <h1>📱 QR Code Scanner</h1>
+        <h1>📊 Barcode Scanner</h1>
     </header>
 
     <main>
@@ -32,6 +31,7 @@
             <canvas id="canvas"></canvas>
             <div id="overlay">
                 <div class="scanner-frame">
+                    <div class="scan-line"></div>
                     <div class="corner top-left"></div>
                     <div class="corner top-right"></div>
                     <div class="corner bottom-left"></div>
@@ -44,12 +44,14 @@
 
         <div id="result">
             <div class="success-icon">✅</div>
-            <h2>QR Code Detected!</h2>
-            <div class="result-label">Scanned Content:</div>
+            <h2>Barcode Detected!</h2>
+            <div class="result-label">Product Code:</div>
             <div id="result-content"></div>
+            <div id="barcode-type" class="barcode-type"></div>
             <button id="scan-again-btn">Scan Another Code</button>
         </div>
     </main>
+
     <script src="pwa.js"></script>
     <script src="script.js"></script>
 </body>

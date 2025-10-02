@@ -6,16 +6,18 @@ const scanAgainBtn = document.getElementById('scan-again-btn');
 const scannerContainer = document.getElementById('scanner-container');
 const result = document.getElementById('result');
 const resultContent = document.getElementById('result-content');
+const barcodeType = document.getElementById('barcode-type');
 const status = document.getElementById('status');
 const debugConsole = document.getElementById('debug-console');
 const toggleDebugBtn = document.getElementById('toggle-debug');
-const codeReader = new ZXing.BrowserMultiFormatReader();
 
 let stream = null;
 let scanning = false;
 let debugEnabled = false;
 let scanAttempts = 0;
+let scanner = null;
 
+// Debug logging function
 function debugLog(message) {
     const line = document.createElement('div');
     line.className = 'debug-line';
@@ -38,55 +40,52 @@ toggleDebugBtn.addEventListener('click', () => {
     }
 });
 
-function waitForJsQR() {
-    return new Promise((resolve, reject) => {
-        if (typeof jsQR !== 'undefined') {
-            resolve();
-            return;
-        }
-
-        let attempts = 0;
-        const checkInterval = setInterval(() => {
-            attempts++;
-            if (typeof jsQR !== 'undefined') {
-                clearInterval(checkInterval);
-                resolve();
-            } else if (attempts > 50) {
-                clearInterval(checkInterval);
-                reject(new Error('jsQR library failed to load'));
-            }
-        }, 100);
-    });
-}
-
 startBtn.addEventListener('click', startScanner);
 scanAgainBtn.addEventListener('click', startScanner);
+
+// Initialize ZBar scanner
+async function initScanner() {
+    if (scanner) return true;
+    
+    try {
+        debugLog('Initializing ZBar scanner...');
+        const { scanImageData } = await zbarWasm();
+        scanner = scanImageData;
+        debugLog('ZBar scanner initialized successfully');
+        return true;
+    } catch (err) {
+        debugLog(`ERROR initializing scanner: ${err.message}`);
+        return false;
+    }
+}
 
 async function startScanner() {
     try {
         debugLog('Starting scanner...');
         scanAttempts = 0;
-
-        debugLog('Checking for jsQR library...');
-        try {
-            await waitForJsQR();
-            debugLog('jsQR library loaded successfully!');
-        } catch (err) {
-            debugLog('ERROR: jsQR library failed to load');
-            status.textContent = '❌ QR library failed to load. Please refresh the page.';
+        
+        // Initialize scanner
+        const initialized = await initScanner();
+        if (!initialized) {
+            status.textContent = '❌ Scanner failed to initialize. Please refresh the page.';
             return;
         }
-
+        
+        // Hide result if showing
         result.classList.remove('show');
-
+        
         debugLog('Requesting camera access...');
         stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' }
+            video: { 
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
         });
-
+        
         debugLog('Camera access granted');
         debugLog(`Stream tracks: ${stream.getTracks().length}`);
-
+        
         video.srcObject = stream;
         video.play();
 
@@ -94,9 +93,9 @@ async function startScanner() {
 
         scannerContainer.style.display = 'block';
         startBtn.style.display = 'none';
-        status.textContent = '🔍 Scanning... Point camera at QR code';
+        status.textContent = '📊 Scanning... Point camera at barcode';
         status.style.display = 'block';
-
+        
         scanning = true;
         debugLog('Scan loop starting...');
         requestAnimationFrame(scan);
@@ -122,11 +121,12 @@ function scan() {
     if (!scanning) return;
 
     scanAttempts++;
-
+    
     if (scanAttempts === 1) {
         debugLog('First scan attempt');
     }
-
+    
+    // Log every 60 frames (about once per second at 60fps)
     if (scanAttempts % 60 === 0) {
         debugLog(`Scan attempts: ${scanAttempts}, Video ready: ${video.readyState}`);
     }
@@ -135,46 +135,30 @@ function scan() {
         if (scanAttempts === 1) {
             debugLog(`Video dimensions: ${video.videoWidth}x${video.videoHeight}`);
         }
-
+        
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
+        
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
+        
         if (scanAttempts === 1) {
             debugLog(`Canvas size: ${canvas.width}x${canvas.height}`);
             debugLog(`ImageData size: ${imageData.width}x${imageData.height}`);
-            debugLog('jsQR library loaded: ' + (typeof jsQR !== 'undefined'));
         }
-
+        
         try {
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert"
-            });
+            const symbols = scanner(imageData);
 
-            if (code) {
-                debugLog('QR CODE FOUND!');
-                debugLog(`Data: ${code.data}`);
-                handleScannedCode(code.data);
+            if (symbols && symbols.length > 0) {
+                debugLog(`BARCODE FOUND! Count: ${symbols.length}`);
+                const symbol = symbols[0];
+                debugLog(`Type: ${symbol.typeName}, Data: ${symbol.decode()}`);
+                handleBarcode(symbol.decode(), symbol.typeName);
                 return;
             }
         } catch (err) {
-            debugLog(`jsQR error: ${err.message}`);
-        }
-
-        try {
-            const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
-            const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
-            const resultZXing = codeReader.decode(binaryBitmap);
-            if (resultZXing) {
-                debugLog('BARCODE FOUND!');
-                debugLog(`Data: ${resultZXing.getText()}`);
-                handleScannedCode(resultZXing.getText());
-                return;
-            }
-        } catch (err) {
-            debugLog('No barcode detected this frame');
+            debugLog(`Scanner error: ${err.message}`);
         }
     } else {
         if (scanAttempts <= 10) {
@@ -185,25 +169,27 @@ function scan() {
     requestAnimationFrame(scan);
 }
 
-function handleScannedCode(data) {
-    debugLog('Handling QR code result');
+function handleBarcode(data, type) {
+    debugLog('Handling barcode result');
     scanning = false;
     stopScanner();
-
+    
+    // Display result prominently
     resultContent.textContent = data;
+    barcodeType.textContent = `Format: ${type}`;
     result.classList.add('show');
     startBtn.style.display = 'none';
-
+    
     debugLog('Result displayed');
-
+    
+    // Vibrate if supported
     if ('vibrate' in navigator) {
         navigator.vibrate(200);
         debugLog('Vibration triggered');
     }
 
+    // Scroll result into view
     setTimeout(() => {
         result.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
 }
-
-

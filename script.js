@@ -1,4 +1,3 @@
-const video = document.getElementById('video');
 const startBtn = document.getElementById('start-btn');
 const scanAgainBtn = document.getElementById('scan-again-btn');
 const scannerContainer = document.getElementById('scanner-container');
@@ -9,7 +8,6 @@ const status = document.getElementById('status');
 const debugConsole = document.getElementById('debug-console');
 const toggleDebugBtn = document.getElementById('toggle-debug');
 
-let stream = null;
 let scanning = false;
 let debugEnabled = false;
 let scanAttempts = 0;
@@ -66,27 +64,16 @@ async function startScanner() {
         // Hide result if showing
         result.classList.remove('show');
         
-        debugLog('Requesting camera access...');
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: { 
-                facingMode: 'environment',
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
-            }
-        });
+        // Clear the scanner container and create a clean div for Html5Qrcode
+        scannerContainer.innerHTML = '<div id="qr-reader" style="width: 100%;"></div>';
         
-        debugLog('Camera access granted');
-        video.srcObject = stream;
-        await video.play();
-        debugLog('Video element started');
-
-        // Initialize JS scanner
-        html5QrCodeScanner = new Html5Qrcode("scanner-container");
+        // Initialize Html5Qrcode scanner
+        html5QrCodeScanner = new Html5Qrcode("qr-reader");
         
         const config = { 
-            fps: 10,  // Scans ~10x/sec for smooth perf on iPhone 8
-            qrbox: { width: 250, height: 250 },  // Focus box size
-            aspectRatio: 1.0  // Square for barcodes
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
         };
         
         const successCallback = (decodedText, decodedResult) => {
@@ -103,10 +90,10 @@ async function startScanner() {
         
         // Start scanning
         await html5QrCodeScanner.start(
-            { facingMode: "environment" },  // Camera constraints
-            config,                         // Config object
-            successCallback,               // Success callback
-            errorCallback                  // Error callback
+            { facingMode: "environment" },
+            config,
+            successCallback,
+            errorCallback
         );
         
         scannerContainer.style.display = 'block';
@@ -114,7 +101,7 @@ async function startScanner() {
         status.textContent = '📊 Scanning... Point camera at barcode';
         status.style.display = 'block';
         scanning = true;
-        debugLog('JS scanner started successfully');
+        debugLog('Html5Qrcode scanner started successfully');
         
     } catch (err) {
         status.textContent = '❌ Camera access failed. Ensure camera permissions are enabled in Settings > Safari > Camera, and this app is served over HTTPS.';
@@ -127,15 +114,24 @@ function stopScanner() {
     scanning = false;
     if (html5QrCodeScanner) {
         html5QrCodeScanner.stop().then(() => {
-            html5QrCodeScanner.clear();  // Removes overlay/cache
-            debugLog('JS scanner stopped');
+            html5QrCodeScanner.clear();
+            debugLog('Html5Qrcode scanner stopped');
             html5QrCodeScanner = null;
+            
+            // Restore the original scanner container content
+            scannerContainer.innerHTML = `
+                <video id="video" playsinline style="display: none;"></video>
+                <div id="overlay">
+                    <div class="scanner-frame">
+                        <div class="scan-line"></div>
+                        <div class="corner top-left"></div>
+                        <div class="corner top-right"></div>
+                        <div class="corner bottom-left"></div>
+                        <div class="corner bottom-right"></div>
+                    </div>
+                </div>
+            `;
         }).catch(err => debugLog(`Stop error: ${err}`));
-    }
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-        debugLog('Camera stopped');
     }
     scannerContainer.style.display = 'none';
     status.style.display = 'none';

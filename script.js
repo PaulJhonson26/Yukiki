@@ -65,7 +65,7 @@ async function startScanner() {
         // Hide result if showing
         result.classList.remove('show');
         
-        // Clear scanner container and create fresh video and reader elements
+        // Clear scanner container and create fresh elements
         scannerContainer.innerHTML = `
             <div id="qr-reader" style="width: 100%;"></div>
             <video id="video" playsinline style="display: none;"></video>
@@ -86,7 +86,7 @@ async function startScanner() {
         stream = await navigator.mediaDevices.getUserMedia({
             video: { 
                 facingMode: 'environment',
-                width: { ideal: 640 }, // Stable resolution for iPhone 8
+                width: { ideal: 640 },
                 height: { ideal: 480 }
             }
         });
@@ -94,7 +94,7 @@ async function startScanner() {
         debugLog('Camera access granted');
         video.srcObject = stream;
         
-        // Wait for video metadata to ensure valid dimensions
+        // Wait for video metadata
         await new Promise((resolve, reject) => {
             video.onloadedmetadata = () => {
                 debugLog(`Video metadata loaded. Dimensions: ${video.videoWidth}x${video.videoHeight}`);
@@ -123,11 +123,11 @@ async function startScanner() {
         // Dynamic qrbox size to prevent IndexSizeError
         const videoWidth = video.videoWidth || 640;
         const videoHeight = video.videoHeight || 480;
-        const qrboxWidth = Math.min(300, videoWidth * 0.8); // 80% of video width
-        const qrboxHeight = Math.min(100, videoHeight * 0.3); // Narrower for barcodes
+        const qrboxWidth = Math.min(200, videoWidth * 0.6); // 60% of video width
+        const qrboxHeight = Math.min(80, videoHeight * 0.2); // 20% for barcodes
         
         const config = { 
-            fps: 10,  // Balanced for iPhone 8
+            fps: 5,  // Lowered for stability
             qrbox: { width: qrboxWidth, height: qrboxHeight },
             aspectRatio: 3.0, // Wider for linear barcodes
             disableFlip: true // Prevent flipping
@@ -141,7 +141,7 @@ async function startScanner() {
         };
         
         const errorCallback = (error) => {
-            if (scanAttempts % 60 === 0) {
+            if (scanAttempts % 30 === 0) { // Log every ~6 seconds at 5fps
                 debugLog(`Scan error: ${error}`);
             }
             scanAttempts++;

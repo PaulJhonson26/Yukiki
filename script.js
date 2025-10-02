@@ -8,6 +8,7 @@ const status = document.getElementById('status');
 const debugConsole = document.getElementById('debug-console');
 const toggleDebugBtn = document.getElementById('toggle-debug');
 
+let stream = null;
 let scanning = false;
 let debugEnabled = false;
 let scanAttempts = 0;
@@ -58,23 +59,81 @@ async function startScanner() {
     }
 
     try {
-        debugLog('Starting scanner...');
+        debugLog('Starting barcode scanner...');
         scanAttempts = 0;
         
         // Hide result if showing
         result.classList.remove('show');
         
-        // Clear the scanner container and create a clean div for Html5Qrcode
-        scannerContainer.innerHTML = '<div id="qr-reader" style="width: 100%;"></div>';
+        // Clear scanner container and create fresh video and reader elements
+        scannerContainer.innerHTML = `
+            <div id="qr-reader" style="width: 100%;"></div>
+            <video id="video" playsinline style="display: none;"></video>
+            <div id="overlay">
+                <div class="scanner-frame">
+                    <div class="scan-line"></div>
+                    <div class="corner top-left"></div>
+                    <div class="corner top-right"></div>
+                    <div class="corner bottom-left"></div>
+                    <div class="corner bottom-right"></div>
+                </div>
+            </div>
+        `;
+
+        const video = document.getElementById('video');
         
-        // Initialize Html5Qrcode scanner
-        html5QrCodeScanner = new Html5Qrcode("qr-reader");
+        debugLog('Requesting camera access...');
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+                facingMode: 'environment',
+                width: { ideal: 640 }, // Stable resolution for iPhone 8
+                height: { ideal: 480 }
+            }
+        });
+        
+        debugLog('Camera access granted');
+        video.srcObject = stream;
+        
+        // Wait for video metadata to ensure valid dimensions
+        await new Promise((resolve, reject) => {
+            video.onloadedmetadata = () => {
+                debugLog(`Video metadata loaded. Dimensions: ${video.videoWidth}x${video.videoHeight}`);
+                if (video.videoWidth === 0 || video.videoHeight === 0) {
+                    reject(new Error('Invalid video dimensions'));
+                } else {
+                    resolve();
+                }
+            };
+            video.onerror = () => reject(new Error('Video stream error'));
+            video.play();
+        });
+        
+        // Initialize scanner with barcode-only formats
+        html5QrCodeScanner = new Html5Qrcode("qr-reader", {
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39
+            ]
+        });
+        
+        // Dynamic qrbox size to prevent IndexSizeError
+        const videoWidth = video.videoWidth || 640;
+        const videoHeight = video.videoHeight || 480;
+        const qrboxWidth = Math.min(300, videoWidth * 0.8); // 80% of video width
+        const qrboxHeight = Math.min(100, videoHeight * 0.3); // Narrower for barcodes
         
         const config = { 
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0
+            fps: 10,  // Balanced for iPhone 8
+            qrbox: { width: qrboxWidth, height: qrboxHeight },
+            aspectRatio: 3.0, // Wider for linear barcodes
+            disableFlip: true // Prevent flipping
         };
+        
+        debugLog(`Scanner config: qrbox ${qrboxWidth}x${qrboxHeight}, aspectRatio ${config.aspectRatio}`);
         
         const successCallback = (decodedText, decodedResult) => {
             debugLog(`BARCODE FOUND! Value: ${decodedText}, Format: ${decodedResult.format?.formatName || 'unknown'}`);
@@ -82,7 +141,7 @@ async function startScanner() {
         };
         
         const errorCallback = (error) => {
-            if (scanAttempts % 60 === 0) {  // Log errors sparingly
+            if (scanAttempts % 60 === 0) {
                 debugLog(`Scan error: ${error}`);
             }
             scanAttempts++;
@@ -101,7 +160,7 @@ async function startScanner() {
         status.textContent = '📊 Scanning... Point camera at barcode';
         status.style.display = 'block';
         scanning = true;
-        debugLog('Html5Qrcode scanner started successfully');
+        debugLog('Barcode scanner started successfully');
         
     } catch (err) {
         status.textContent = '❌ Camera access failed. Ensure camera permissions are enabled in Settings > Safari > Camera, and this app is served over HTTPS.';
@@ -115,10 +174,10 @@ function stopScanner() {
     if (html5QrCodeScanner) {
         html5QrCodeScanner.stop().then(() => {
             html5QrCodeScanner.clear();
-            debugLog('Html5Qrcode scanner stopped');
+            debugLog('Barcode scanner stopped');
             html5QrCodeScanner = null;
             
-            // Restore the original scanner container content
+            // Restore original scanner container content
             scannerContainer.innerHTML = `
                 <video id="video" playsinline style="display: none;"></video>
                 <div id="overlay">
@@ -132,6 +191,11 @@ function stopScanner() {
                 </div>
             `;
         }).catch(err => debugLog(`Stop error: ${err}`));
+    }
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        debugLog('Camera stopped');
     }
     scannerContainer.style.display = 'none';
     status.style.display = 'none';

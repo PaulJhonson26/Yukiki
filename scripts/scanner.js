@@ -1,79 +1,30 @@
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing app...');
-});
-
-const startBtn = document.getElementById('start-btn');
-const scanAgainBtn = document.getElementById('scan-again-btn');
-const scannerContainer = document.getElementById('scanner-container');
-const result = document.getElementById('result');
-const resultContent = document.getElementById('result-content');
-const barcodeType = document.getElementById('barcode-type');
-const status = document.getElementById('status');
-const debugConsole = document.getElementById('debug-console');
-const toggleDebugBtn = document.getElementById('toggle-debug');
-
-// Debug: Check if elements exist
-console.log('Elements found:', {
-    startBtn: !!startBtn,
-    scanAgainBtn: !!scanAgainBtn,
-    toggleDebugBtn: !!toggleDebugBtn,
-    status: !!status,
-    debugConsole: !!debugConsole
-});
-
-let stream = null;
+// Barcode scanner functionality using QuaggaJS
 let scanning = false;
-let debugEnabled = false;
 let scanAttempts = 0;
+let stream = null;
 
-// Format mapping for QuaggaJS
-const formatMap = {
-    'ean_reader': 'ean_13',
-    'ean_8_reader': 'ean_8',
-    'upc_reader': 'upc_a',
-    'upc_e_reader': 'upc_e',
-    'code_128_reader': 'code_128',
-    'code_39_reader': 'code_39',
-    'unknown': 'unknown'
-};
-
-// Debug logging function
-function debugLog(message) {
-    const line = document.createElement('div');
-    line.className = 'debug-line';
-    const timestamp = new Date().toLocaleTimeString();
-    line.textContent = `[${timestamp}] ${message}`;
-    debugConsole.appendChild(line);
-    debugConsole.scrollTop = debugConsole.scrollHeight;
-    console.log(message);
-}
-
-toggleDebugBtn.addEventListener('click', () => {
-    debugEnabled = !debugEnabled;
-    if (debugEnabled) {
-        debugConsole.classList.add('show');
-        toggleDebugBtn.textContent = 'Hide Debug Info';
-        debugLog('Debug mode enabled');
-    } else {
-        debugConsole.classList.remove('show');
-        toggleDebugBtn.textContent = 'Show Debug Info';
-    }
-});
-
-startBtn.addEventListener('click', startScanner);
-scanAgainBtn.addEventListener('click', startScanner);
-
-async function startScanner() {
+/**
+ * Initialize and start the barcode scanner
+ * @param {Function} onBarcodeDetected - Callback when barcode is detected
+ * @param {Function} onError - Callback for errors
+ * @param {Function} debugLog - Debug logging function
+ */
+async function startScanner(onBarcodeDetected, onError, debugLog) {
     if (typeof Quagga === 'undefined') {
-        status.textContent = '❌ Barcode scanner library failed to load. Check your internet connection and try again.';
-        debugLog('ERROR: Quagga library not loaded');
+        const error = 'Quagga library not loaded';
+        debugLog(`ERROR: ${error}`);
+        onError('❌ Barcode scanner library failed to load. Check your internet connection and try again.');
         return;
     }
 
     try {
         debugLog('Starting barcode scanner...');
         scanAttempts = 0;
+        
+        const scannerContainer = document.getElementById('scanner-container');
+        const result = document.getElementById('result');
+        const status = document.getElementById('status');
+        const startBtn = document.getElementById('start-btn');
         
         // Hide result if showing
         result.classList.remove('show');
@@ -114,7 +65,7 @@ async function startScanner() {
                 }
             },
             locator: {
-                patchSize: 'small', // Optimize for iPhone 8
+                patchSize: 'small', // Optimize for mobile
                 halfSample: false
             },
             numOfWorkers: 2,
@@ -126,14 +77,16 @@ async function startScanner() {
                     'upc_e_reader',
                     'code_128_reader',
                     'code_39_reader'
-                ]
+                ],
+                multiple: false // Prevent multiple simultaneous detections
             },
             locate: true
         }, (err) => {
             if (err) {
-                status.textContent = '❌ Failed to initialize scanner. Try again.';
+                const errorMsg = '❌ Failed to initialize scanner. Try again.';
                 debugLog(`Quagga init error: ${err}`);
                 console.error(err);
+                onError(errorMsg);
                 return;
             }
             
@@ -147,13 +100,25 @@ async function startScanner() {
             debugLog('Barcode scanner started successfully');
         });
         
+        // Set up barcode detection
         Quagga.onDetected((result) => {
             const code = result.codeResult.code;
             const format = result.codeResult.format || 'unknown';
-            debugLog(`BARCODE FOUND! Value: ${code}, Format: ${format}`);
-            handleBarcode(code, format);
+            debugLog(`BARCODE FOUND! Value: ${code}, Length: ${code.length}, Format: ${format}`);
+            
+            // Validate GTIN using API module
+            const normalizedFormat = window.BarcodeAPI.formatMap[format] || 'unknown';
+            const validation = window.BarcodeAPI.validateGTIN(code, normalizedFormat);
+            if (!validation.valid) {
+                debugLog(`Invalid GTIN: ${validation.message}`);
+                status.textContent = `❌ Invalid barcode: ${validation.message}`;
+                return;
+            }
+            
+            onBarcodeDetected(code, format);
         });
         
+        // Set up scan progress monitoring
         Quagga.onProcessed((result) => {
             if (scanAttempts % 30 === 0) {
                 debugLog('Scanning frame...');
@@ -162,18 +127,33 @@ async function startScanner() {
         });
         
     } catch (err) {
-        status.textContent = '❌ Camera access failed. Ensure camera permissions are enabled in Settings > Safari > Camera, and this app is served over HTTPS.';
+        const errorMsg = '❌ Camera access failed. Ensure camera permissions are enabled in Settings > Safari > Camera, and this app is served over HTTPS.';
         debugLog(`ERROR: ${err.message}`);
         console.error(err);
+        onError(errorMsg);
     }
 }
 
-function stopScanner() {
+/**
+ * Stop the barcode scanner and cleanup
+ * @param {Function} debugLog - Debug logging function
+ */
+function stopScanner(debugLog) {
     scanning = false;
+    
     if (typeof Quagga !== 'undefined') {
         Quagga.stop();
         debugLog('Barcode scanner stopped');
     }
+    
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        debugLog('Camera stopped');
+    }
+    
+    const scannerContainer = document.getElementById('scanner-container');
+    const status = document.getElementById('status');
     
     // Restore original container content
     scannerContainer.innerHTML = `
@@ -192,28 +172,17 @@ function stopScanner() {
     status.style.display = 'none';
 }
 
-function handleBarcode(data, format) {
-    debugLog('Handling barcode result');
-    scanning = false;
-    stopScanner();
-    
-    // Display result prominently
-    const normalizedFormat = formatMap[format] || 'unknown';
-    resultContent.textContent = data;
-    barcodeType.textContent = `Format: ${normalizedFormat.toUpperCase().replace('_', '-')}`;
-    result.classList.add('show');
-    startBtn.style.display = 'none';
-    
-    debugLog('Result displayed');
-    
-    // Vibrate if supported
-    if ('vibrate' in navigator) {
-        navigator.vibrate(200);
-        debugLog('Vibration triggered');
-    }
-
-    // Scroll result into view
-    setTimeout(() => {
-        result.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
+/**
+ * Check if scanner is currently active
+ * @returns {boolean} - True if scanning is active
+ */
+function isScanning() {
+    return scanning;
 }
+
+// Export scanner functions
+window.BarcodeScanner = {
+    startScanner,
+    stopScanner,
+    isScanning
+};

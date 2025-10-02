@@ -13,14 +13,14 @@ let scanning = false;
 let debugEnabled = false;
 let scanAttempts = 0;
 
-// Format mapping for consistent display
+// Format mapping for QuaggaJS
 const formatMap = {
-    'ean': 'ean_13',
-    'ean_8': 'ean_8',
-    'upc': 'upc_a',
-    'upc_e': 'upc_e',
-    'code_128': 'code_128',
-    'code_39': 'code_39',
+    'ean_reader': 'ean_13',
+    'ean_8_reader': 'ean_8',
+    'upc_reader': 'upc_a',
+    'upc_e_reader': 'upc_e',
+    'code_128_reader': 'code_128',
+    'code_39_reader': 'code_39',
     'unknown': 'unknown'
 };
 
@@ -117,11 +117,17 @@ async function startScanner() {
                     facingMode: 'environment',
                     width: 640,
                     height: 480
+                },
+                area: { // Restrict scan area for 1D barcodes
+                    top: '30%',
+                    right: '10%',
+                    left: '10%',
+                    bottom: '30%'
                 }
             },
             locator: {
-                patchSize: 'medium',
-                halfSample: true
+                patchSize: 'small', // Optimize for iPhone 8
+                halfSample: false
             },
             numOfWorkers: 2,
             decoder: {

@@ -15,7 +15,7 @@ let stream = null;
 let scanning = false;
 let debugEnabled = false;
 let scanAttempts = 0;
-let scanner = null;
+let barcodeDetector = null;
 
 // Debug logging function
 function debugLog(message) {
@@ -43,18 +43,29 @@ toggleDebugBtn.addEventListener('click', () => {
 startBtn.addEventListener('click', startScanner);
 scanAgainBtn.addEventListener('click', startScanner);
 
-// Initialize ZBar scanner
-async function initScanner() {
-    if (scanner) return true;
+// Check for Barcode Detection API support
+async function initBarcodeDetector() {
+    if (barcodeDetector) return true;
+    
+    debugLog('Checking for Barcode Detection API...');
+    
+    if (!('BarcodeDetector' in window)) {
+        debugLog('BarcodeDetector not available - browser does not support it');
+        return false;
+    }
     
     try {
-        debugLog('Initializing ZBar scanner...');
-        const { scanImageData } = await zbarWasm();
-        scanner = scanImageData;
-        debugLog('ZBar scanner initialized successfully');
+        const formats = await BarcodeDetector.getSupportedFormats();
+        debugLog(`Supported formats: ${formats.join(', ')}`);
+        
+        barcodeDetector = new BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39']
+        });
+        
+        debugLog('BarcodeDetector initialized successfully');
         return true;
     } catch (err) {
-        debugLog(`ERROR initializing scanner: ${err.message}`);
+        debugLog(`ERROR initializing BarcodeDetector: ${err.message}`);
         return false;
     }
 }
@@ -64,11 +75,12 @@ async function startScanner() {
         debugLog('Starting scanner...');
         scanAttempts = 0;
         
-        // Initialize scanner
-        const initialized = await initScanner();
+        // Initialize barcode detector
+        const initialized = await initBarcodeDetector();
         if (!initialized) {
-            status.textContent = '❌ Scanner failed to initialize. Please refresh the page.';
-            return;
+            status.textContent = '❌ Barcode detection not supported on this browser. Try using Safari.';
+            debugLog('Falling back to manual scanning mode');
+            // We'll continue anyway and try manual detection
         }
         
         // Hide result if showing
@@ -78,8 +90,8 @@ async function startScanner() {
         stream = await navigator.mediaDevices.getUserMedia({
             video: { 
                 facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
             }
         });
         
@@ -87,7 +99,7 @@ async function startScanner() {
         debugLog(`Stream tracks: ${stream.getTracks().length}`);
         
         video.srcObject = stream;
-        video.play();
+        await video.play();
 
         debugLog('Video element started');
 
@@ -117,7 +129,7 @@ function stopScanner() {
     status.style.display = 'none';
 }
 
-function scan() {
+async function scan() {
     if (!scanning) return;
 
     scanAttempts++;
@@ -140,25 +152,25 @@ function scan() {
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
         if (scanAttempts === 1) {
             debugLog(`Canvas size: ${canvas.width}x${canvas.height}`);
-            debugLog(`ImageData size: ${imageData.width}x${imageData.height}`);
+            debugLog(`BarcodeDetector available: ${!!barcodeDetector}`);
         }
         
-        try {
-            const symbols = scanner(imageData);
+        if (barcodeDetector) {
+            try {
+                const barcodes = await barcodeDetector.detect(canvas);
 
-            if (symbols && symbols.length > 0) {
-                debugLog(`BARCODE FOUND! Count: ${symbols.length}`);
-                const symbol = symbols[0];
-                debugLog(`Type: ${symbol.typeName}, Data: ${symbol.decode()}`);
-                handleBarcode(symbol.decode(), symbol.typeName);
-                return;
+                if (barcodes && barcodes.length > 0) {
+                    debugLog(`BARCODE FOUND! Count: ${barcodes.length}`);
+                    const barcode = barcodes[0];
+                    debugLog(`Type: ${barcode.format}, Value: ${barcode.rawValue}`);
+                    handleBarcode(barcode.rawValue, barcode.format);
+                    return;
+                }
+            } catch (err) {
+                debugLog(`Detection error: ${err.message}`);
             }
-        } catch (err) {
-            debugLog(`Scanner error: ${err.message}`);
         }
     } else {
         if (scanAttempts <= 10) {
@@ -169,14 +181,14 @@ function scan() {
     requestAnimationFrame(scan);
 }
 
-function handleBarcode(data, type) {
+function handleBarcode(data, format) {
     debugLog('Handling barcode result');
     scanning = false;
     stopScanner();
     
     // Display result prominently
     resultContent.textContent = data;
-    barcodeType.textContent = `Format: ${type}`;
+    barcodeType.textContent = `Format: ${format.toUpperCase().replace('_', '-')}`;
     result.classList.add('show');
     startBtn.style.display = 'none';
     
